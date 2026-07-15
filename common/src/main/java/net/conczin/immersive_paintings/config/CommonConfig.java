@@ -6,6 +6,9 @@ import me.fzzyhmstrs.fzzy_config.config.ConfigGroup;
 import net.conczin.immersive_paintings.Main;
 import net.conczin.immersive_paintings.registration.Configs;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Translation(prefix = Configs.CONFIG_ID + "common")
 public class CommonConfig extends Config {
     public CommonConfig() {
@@ -30,6 +33,17 @@ public class CommonConfig extends Config {
 
     public int minPaintingResolution = 8;
     public int maxPaintingResolution = 256;
+
+    public ConfigGroup securityGroup = new ConfigGroup("security");
+    public List<String> allowedImageHosts = new ArrayList<>(List.of(
+        "i.imgur.com",
+        "imgur.com",
+        "cdn.discordapp.com",
+        "media.discordapp.net",
+        "i.postimg.cc"
+    ));
+    public int maxImageDownloadSize = 10 * 1024 * 1024;
+    public int imageDownloadTimeout = 10000;
 
     // Advanced
     public int maxPacketsPerSecond = 20;

@@ -23,6 +23,8 @@ run
 runs
 backup
 
+*.factorypath
+
 # Files from Forge MDK
 forge*changelog.txt
 /src/main/original-java

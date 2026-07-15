@@ -3,18 +3,23 @@ package net.conczin.immersive_paintings.network.payload.c2s;
 import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;
 import net.conczin.immersive_paintings.Main;
+import net.conczin.immersive_paintings.Painting;
+import net.conczin.immersive_paintings.ServerPaintingManager;
 import net.conczin.immersive_paintings.entity.ImmersivePaintingEntity;
 import net.conczin.immersive_paintings.network.payload.ImmersivePayload;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 
 public record PaintingEditPayload(int entityId, Map<Option, String> options) implements ImmersivePayload {
     public static final Type<PaintingEditPayload> TYPE = new Type<>(Main.locate("painting_edit"));
@@ -33,6 +38,25 @@ public record PaintingEditPayload(int entityId, Map<Option, String> options) imp
             Entity entity = player.level().getEntity(entityId);
 
             if (entity instanceof ImmersivePaintingEntity painting) {
+                if (player.distanceToSqr(entity) > 36.0) {
+                    Main.LOGGER.warn("Player {} tried to edit painting from too far away", player);
+                    return;
+                }
+
+                MinecraftServer server = player.getServer();
+                if (server == null) return;
+
+                ResourceLocation motive = painting.getMotive();
+                Optional<Painting> paintingOpt = ServerPaintingManager.getPainting(server, motive);
+
+                if (paintingOpt.isPresent()) {
+                    UUID authorUUID = paintingOpt.get().authorUUID();
+                    if (!authorUUID.equals(player.getUUID()) && !player.hasPermissions(2)) {
+                        Main.LOGGER.warn("Player {} tried to edit painting {} they don't own", player, entityId);
+                        return;
+                    }
+                }
+
                 options.forEach((option, value) -> {
                     switch (option) {
                         case Option.MOTIVE:
@@ -45,7 +69,6 @@ public record PaintingEditPayload(int entityId, Map<Option, String> options) imp
                             painting.setMaterial(ResourceLocation.parse(value));
                             break;
                         case Option.DELETE:
-
                             break;
                     }
                 });

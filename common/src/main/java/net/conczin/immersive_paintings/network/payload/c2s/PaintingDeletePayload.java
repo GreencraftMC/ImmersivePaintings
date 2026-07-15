@@ -38,6 +38,12 @@ public record PaintingDeletePayload(ResourceLocation identifier, boolean adminDe
 
         runner.run(() -> {
             Painting painting = ServerPaintingManager.getCustomPaintings(player.getServer()).get(identifier);
+
+            if (painting == null) {
+                Main.LOGGER.warn("Player {} tried to delete non-existent painting {}", player, identifier);
+                return;
+            }
+
             UUID authorUUID = painting.authorUUID();
 
             if (!(authorUUID.equals(player.getUUID()) || player.hasPermissions(4))) {
