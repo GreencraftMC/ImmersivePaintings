@@ -20,6 +20,7 @@ import net.minecraft.world.entity.player.Player;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public record PaintingEditPayload(UUID entityId, Map<Option, String> options) implements ImmersivePayload {
