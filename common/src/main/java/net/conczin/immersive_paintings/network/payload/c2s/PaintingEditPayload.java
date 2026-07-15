@@ -3,6 +3,8 @@ package net.conczin.immersive_paintings.network.payload.c2s;
 import com.mojang.serialization.Codec;
 import io.netty.buffer.ByteBuf;
 import net.conczin.immersive_paintings.ImmersivePaintings;
+import net.conczin.immersive_paintings.Painting;
+import net.conczin.immersive_paintings.ServerPaintingManager;
 import net.conczin.immersive_paintings.entity.ImmersivePaintingEntity;
 import net.conczin.immersive_paintings.network.payload.ImmersivePayload;
 import net.minecraft.core.UUIDUtil;
@@ -10,6 +12,8 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.codec.ByteBufCodecs;
 import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.resources.Identifier;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.permissions.Permissions;
 import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -35,6 +39,26 @@ public record PaintingEditPayload(UUID entityId, Map<Option, String> options) im
             Entity entity = player.level().getEntity(entityId);
 
             if (entity instanceof ImmersivePaintingEntity painting) {
+                if (player.distanceToSqr(entity) > 36.0) {
+                    ImmersivePaintings.LOGGER.warn("Player {} tried to edit painting from too far away", player);
+                    return;
+                }
+
+                if (options.containsKey(Option.MOTIVE)) {
+                    MinecraftServer server = player.level().getServer();
+                    if (server != null) {
+                        Identifier motive = painting.getMotive();
+                        Optional<Painting> paintingOpt = ServerPaintingManager.getPainting(server, motive);
+                        if (paintingOpt.isPresent()) {
+                            UUID authorUUID = paintingOpt.get().authorUUID();
+                            if (!authorUUID.equals(player.getUUID()) && !player.permissions().hasPermission(Permissions.COMMANDS_OWNER)) {
+                                ImmersivePaintings.LOGGER.warn("Player {} tried to edit painting {} they don't own", player, entityId);
+                                return;
+                            }
+                        }
+                    }
+                }
+
                 options.forEach((option, value) -> {
                     switch (option) {
                         case Option.MOTIVE:

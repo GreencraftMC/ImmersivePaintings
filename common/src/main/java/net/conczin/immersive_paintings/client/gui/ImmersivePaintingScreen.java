@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
 import java.nio.file.Files;
@@ -77,6 +78,8 @@ public class ImmersivePaintingScreen extends Screen {
 
     private List<File> screenshots = List.of();
     private int screenshotPage;
+
+    private static final Set<String> ALLOWED_IMAGE_EXTENSIONS = Set.of("png", "jpg", "jpeg", "gif", "webp", "bmp");
 
     private Identifier deletePainting;
     private Component error;
@@ -269,6 +272,10 @@ public class ImmersivePaintingScreen extends Screen {
                 setScreenshotPage(screenshotPage);
             }
             case CREATE -> {
+                if (settings == null) {
+                    return;
+                }
+
                 // Name
                 EditBox editBox = addRenderableWidget(new EditBox(font, width / 2 - 90, height / 2 - 100, 180, 20,
                         Component.translatable("immersive_paintings.gui.name")));
@@ -876,6 +883,11 @@ public class ImmersivePaintingScreen extends Screen {
 
             if (!Files.exists(path)) continue;
 
+            if (!isImageFile(path)) {
+                setError(Component.translatable("immersive_paintings.gui.invalid_image_file"));
+                continue;
+            }
+
             if (loadImage(p)) {
                 return;
             }
@@ -885,6 +897,7 @@ public class ImmersivePaintingScreen extends Screen {
     }
 
     private boolean loadImage(String path) {
+        clearError();
         currentImage = loadImage(path, ImmersivePaintings.locate("temp"));
         currentImagePixelZoomCache = -1;
         if (currentImage != null) {
@@ -893,6 +906,11 @@ public class ImmersivePaintingScreen extends Screen {
             setPage(Page.CREATE);
             pixelateImage();
             return true;
+        } else if (error == null) {
+            setError(Component.translatable("immersive_paintings.gui.failed_to_load_image"));
+            setPage(Page.CREATE);
+        } else {
+            setPage(Page.CREATE);
         }
         return false;
     }
@@ -906,48 +924,132 @@ public class ImmersivePaintingScreen extends Screen {
     }
 
     private BufferedImage loadImage(String path, Identifier identifier) {
-        InputStream stream = null;
-        try {
-            URLConnection connection = new URL(path).openConnection();
-            connection.setRequestProperty("User-Agent", "ImmersivePaintings/1.0");
-            stream = connection.getInputStream();
-        } catch (Exception exception) {
-            try {
-                stream = new FileInputStream(path);
-            } catch (Exception e) {
-                ImmersivePaintings.LOGGER.error("failed loading image {} from path {}", identifier, path, e);
+        clearError();
+        try (InputStream stream = isUrl(path) ? openUrlStream(path) : new FileInputStream(path)) {
+            BufferedImage image = ImageIO.read(stream);
+            if (image != null) {
+                preprocessImage(image);
+                ClientPaintingManager.newTexture(identifier, image);
+                return image;
             }
+        } catch (IOException e) {
+            ImmersivePaintings.LOGGER.error("Failed to load image {} from path {}", identifier, path, e);
         }
-
-        if (stream != null) {
-            try {
-                BufferedImage image = ImageIO.read(stream);
-                if (image != null) {
-                    // Attempt to preprocess by checking for transparency on non-graffiti paintings
-                    setError(null);
-                    if (!entity.isGraffiti()) {
-                        for (int x = 0; x < image.getWidth(); x++) {
-                            for (int y = 0; y < image.getHeight(); y++) {
-                                int color = image.getRGB(x, y);
-                                if (((color >> 24) & 255) != 255) {
-                                    if (error == null)
-                                        setError(Component.translatable("immersive_paintings.gui.graffiti_warning"));
-                                    image.setRGB(x, y, (255 << 24) | (color & 0x00ffffff));
-                                }
-                            }
-                        }
-                    }
-
-                    ClientPaintingManager.newTexture(identifier, image);
-                    stream.close();
-                    return image;
-                }
-            } catch (IOException e) {
-                ImmersivePaintings.LOGGER.error("failed decoding image {} from path {}", identifier, path, e);
-            }
-        }
-
         return null;
+    }
+
+    private boolean isUrl(String path) {
+        return path.startsWith("http://") || path.startsWith("https://");
+    }
+
+    private boolean isAllowedHost(String host) {
+        for (String allowedHost : Config.COMMON.allowedImageHosts) {
+            if (host.equals(allowedHost.toLowerCase()) || host.endsWith("." + allowedHost.toLowerCase())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private InputStream openUrlStream(String urlString) throws IOException {
+        URL url = new URL(urlString);
+        String host = url.getHost().toLowerCase();
+
+        if (!isAllowedHost(host)) {
+            setError(Component.translatable("immersive_paintings.gui.url_not_allowed", host));
+            throw new IOException("Image host not allowed: " + host);
+        }
+
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+        connection.setInstanceFollowRedirects(false);
+        connection.setConnectTimeout(Config.COMMON.imageDownloadTimeout);
+        connection.setReadTimeout(Config.COMMON.imageDownloadTimeout);
+        connection.setRequestProperty("User-Agent", "ImmersivePaintings/1.0");
+        connection.connect();
+
+        int contentLength = connection.getContentLength();
+        if (contentLength > Config.COMMON.maxImageDownloadSize) {
+            setError(Component.translatable("immersive_paintings.gui.image_too_large"));
+            connection.disconnect();
+            throw new IOException("Image too large: " + contentLength + " bytes");
+        }
+
+        return connection.getInputStream();
+    }
+
+    private boolean isImageFile(Path path) {
+        String fileName = path.getFileName().toString().toLowerCase();
+        int dotIndex = fileName.lastIndexOf('.');
+        if (dotIndex == -1) return false;
+
+        String extension = fileName.substring(dotIndex + 1);
+        if (!ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
+            return false;
+        }
+
+        return hasValidImageMagicBytes(path);
+    }
+
+    private boolean hasValidImageMagicBytes(Path path) {
+        try {
+            byte[] header = Files.readAllBytes(path);
+            if (header.length < 4) return false;
+
+            if (header[0] == (byte)0x89 && header[1] == (byte)0x50 &&
+                header[2] == (byte)0x4E && header[3] == (byte)0x47) {
+                return true;
+            }
+
+            if (header[0] == (byte)0xFF && header[1] == (byte)0xD8 &&
+                header[2] == (byte)0xFF) {
+                return true;
+            }
+
+            if (header[0] == (byte)0x47 && header[1] == (byte)0x49 &&
+                header[2] == (byte)0x46 && header[3] == (byte)0x38) {
+                return true;
+            }
+
+            if (header[0] == (byte)0x42 && header[1] == (byte)0x4D) {
+                return true;
+            }
+
+            if (header[0] == (byte)0x52 && header[1] == (byte)0x49 &&
+                header[2] == (byte)0x46 && header[3] == (byte)0x46 &&
+                header.length >= 12 &&
+                header[8] == (byte)0x57 && header[9] == (byte)0x45 &&
+                header[10] == (byte)0x42 && header[11] == (byte)0x50) {
+                return true;
+            }
+
+            return false;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
+    // Only graffiti properly supports alpha
+    private void preprocessImage(BufferedImage image) {
+        clearError();
+        if (!entity.isGraffiti()) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                for (int y = 0; y < image.getHeight(); y++) {
+                    int color = image.getRGB(x, y);
+                    int alpha = (color >> 24) & 255;
+                    if (alpha != 255) {
+                        if (error == null) {
+                            setError(Component.translatable("immersive_paintings.gui.graffiti_warning"));
+                        }
+                        color = (255 << 24) | (color & 0x00ffffff);
+                        image.setRGB(x, y, color);
+                    }
+                }
+            }
+        }
+    }
+
+    public void clearError() {
+        error = null;
     }
 
     private void adaptToPixelArt() {

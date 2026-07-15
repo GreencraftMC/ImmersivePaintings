@@ -5,6 +5,9 @@ import me.fzzyhmstrs.fzzy_config.config.Config;
 import me.fzzyhmstrs.fzzy_config.config.ConfigGroup;
 import net.conczin.immersive_paintings.ImmersivePaintings;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Translation(prefix = "config." + ImmersivePaintings.MOD_ID + ".common")
 public class CommonConfig extends Config {
     public CommonConfig() {
@@ -21,6 +24,18 @@ public class CommonConfig extends Config {
     public boolean enableBundledPaintings = true;
     @ConfigGroup.Pop
     public int uploadPermissionLevel = 0;
+
+    public ConfigGroup securityGroup = new ConfigGroup("security");
+    public List<String> allowedImageHosts = new ArrayList<>(List.of(
+        "i.imgur.com",
+        "imgur.com",
+        "cdn.discordapp.com",
+        "media.discordapp.net",
+        "i.postimg.cc"
+    ));
+    public int maxImageDownloadSize = 10 * 1024 * 1024;
+    @ConfigGroup.Pop
+    public int imageDownloadTimeout = 10000;
 
     public ConfigGroup advancedGroup = new ConfigGroup("advanced");
     public int maxUserImageWidth = 4096;

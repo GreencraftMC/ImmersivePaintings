@@ -91,6 +91,10 @@
   "immersive_paintings.error.too_large": "Image is too large!",
   "immersive_paintings.error.limit_reached": "You reached your maximum amount of uploaded paintings!",
   "immersive_paintings.error.hash_failed": "Failed to create hash of painting!",
+  "immersive_paintings.gui.invalid_image_file": "Invalid image file. Only PNG, JPG, GIF, WebP, and BMP are allowed.",
+  "immersive_paintings.gui.url_not_allowed": "Image host '%s' is not allowed. Please use an allowed image host.",
+  "immersive_paintings.gui.image_too_large": "Image is too large. Maximum size is 10MB.",
+  "immersive_paintings.gui.failed_to_load_image": "Failed to load image.",
   "immersive_paintings.error.image_load_failed": "Could not load image, check log!",
 
   "immersive_paintings.command.success.delete": "Deleted all paintings for player %s",
@@ -132,6 +136,14 @@
   "config.immersive_paintings.common.packetSize.desc": "Size of split packets when uploading images",
   "config.immersive_paintings.common.packetSplitInterval": "Packet Split Interval",
   "config.immersive_paintings.common.packetSplitInterval.desc": "Send packets in batches of this size. Setting this too high without a packet size mod will crash the server",
+
+  "config.immersive_paintings.common.securityGroup": "Security Settings",
+  "config.immersive_paintings.common.allowedImageHosts": "Allowed Image Hosts",
+  "config.immersive_paintings.common.allowedImageHosts.desc": "List of allowed image hosts for URL loading",
+  "config.immersive_paintings.common.maxImageDownloadSize": "Max Image Download Size",
+  "config.immersive_paintings.common.maxImageDownloadSize.desc": "Maximum size in bytes for downloaded images",
+  "config.immersive_paintings.common.imageDownloadTimeout": "Image Download Timeout",
+  "config.immersive_paintings.common.imageDownloadTimeout.desc": "Timeout in milliseconds for image downloads",
 
   "config.immersive_paintings.client.showOtherPlayersPaintings": "Show Other Player's Paintings",
   "config.immersive_paintings.client.showOtherPlayersPaintings.desc": "Are other player's paintings visible in the painting edit GUI",

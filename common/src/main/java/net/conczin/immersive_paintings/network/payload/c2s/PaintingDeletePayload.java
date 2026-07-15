@@ -37,6 +37,12 @@ public record PaintingDeletePayload(Identifier identifier, boolean adminDelete) 
 
         runner.run(() -> {
             Painting painting = ServerPaintingManager.getCustomPaintings(player.level().getServer()).get(identifier);
+
+            if (painting == null) {
+                ImmersivePaintings.LOGGER.warn("Player {} tried to delete non-existent painting {}", player, identifier);
+                return;
+            }
+
             UUID authorUUID = painting.authorUUID();
 
             if (!(authorUUID.equals(player.getUUID()) || player.permissions().hasPermission(Permissions.COMMANDS_OWNER))) {
