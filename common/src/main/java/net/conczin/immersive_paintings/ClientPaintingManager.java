@@ -29,7 +29,11 @@ public class ClientPaintingManager {
 
     private static final ClientCache paintingCache = new ClientCache();
 
-    private final static ExecutorService service = Executors.newFixedThreadPool(2);
+    private final static ExecutorService service = Executors.newFixedThreadPool(2, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     public static Map<ResourceLocation, Painting> getPaintings() {
         return paintings;
