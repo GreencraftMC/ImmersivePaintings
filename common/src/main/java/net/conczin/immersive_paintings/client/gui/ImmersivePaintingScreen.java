@@ -85,7 +85,11 @@ public class ImmersivePaintingScreen extends Screen {
     private boolean shouldReProcess;
     private static volatile boolean shouldUpload;
 
-    private final static ExecutorService service = Executors.newFixedThreadPool(1);
+    private final static ExecutorService service = Executors.newFixedThreadPool(1, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     public ImmersivePaintingScreen(int entityId, int minResolution, int maxResolution, boolean showOtherPlayersPaintings, int uploadPermissionLevel) {
         super(Component.translatable("item.immersive_paintings.painting"));
