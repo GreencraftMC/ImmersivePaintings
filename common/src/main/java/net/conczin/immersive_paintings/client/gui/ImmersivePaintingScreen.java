@@ -54,7 +54,11 @@ import java.util.concurrent.Executors;
 public class ImmersivePaintingScreen extends Screen {
     private static final int SCREENSHOTS_PER_PAGE = 5;
 
-    private final static ExecutorService service = Executors.newFixedThreadPool(1);
+    private final static ExecutorService service = Executors.newFixedThreadPool(1, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     public final ImmersivePaintingEntity entity;
 
@@ -137,26 +141,28 @@ public class ImmersivePaintingScreen extends Screen {
                 }
             }
             case CREATE -> {
-                if (shouldReProcess && currentImage != null) {
-                    service.submit(this::pixelateImage);
-                    shouldReProcess = false;
-                }
+                if (settings != null) {
+                    if (shouldReProcess && currentImage != null) {
+                        service.submit(this::pixelateImage);
+                        shouldReProcess = false;
+                    }
 
-                if (shouldUpload && pixelatedImage != null) {
-                    ClientPaintingManager.newTexture(ImmersivePaintings.locate("temp_pixelated"), pixelatedImage);
-                }
+                    if (shouldUpload && pixelatedImage != null) {
+                        ClientPaintingManager.newTexture(ImmersivePaintings.locate("temp_pixelated"), pixelatedImage);
+                    }
 
-                int maxWidth = 190;
-                int maxHeight = 135;
-                int tw = settings.resolution * settings.width;
-                int th = settings.resolution * settings.height;
-                float size = Math.min((float) maxWidth / tw, (float) maxHeight / th);
-                Matrix3x2fStack matrix = graphics.pose();
-                matrix.pushMatrix();
-                matrix.translate(width / 2.0f - tw * size / 2.0f, height / 2.0f - th * size / 2.0f);
-                matrix.scale(size, size);
-                graphics.blit(RenderPipelines.GUI_TEXTURED, ImmersivePaintings.locate("temp_pixelated"), 0, 0, 0, 0, tw, th, tw, th);
-                matrix.popMatrix();
+                    int maxWidth = 190;
+                    int maxHeight = 135;
+                    int tw = settings.resolution * settings.width;
+                    int th = settings.resolution * settings.height;
+                    float size = Math.min((float) maxWidth / tw, (float) maxHeight / th);
+                    Matrix3x2fStack matrix = graphics.pose();
+                    matrix.pushMatrix();
+                    matrix.translate(width / 2.0f - tw * size / 2.0f, height / 2.0f - th * size / 2.0f);
+                    matrix.scale(size, size);
+                    graphics.blit(RenderPipelines.GUI_TEXTURED, ImmersivePaintings.locate("temp_pixelated"), 0, 0, 0, 0, tw, th, tw, th);
+                    matrix.popMatrix();
+                }
 
                 if (error != null) {
                     graphics.centeredText(font, error, width / 2, height / 2, 0xFFFF0000);
